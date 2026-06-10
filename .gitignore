@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+
+# Model checkpoints
+checkpoints*/
+*.pt
+*.pth
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Experiment outputs
+results/
+result/
+logs/
+*.csv
+
+# Paper/output artifacts
+paper_rewriting_output/
+*.pdf
+*.png
+
+# Claude Code
+.claude/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Misc backup files
+*.bak
+*.bak_*

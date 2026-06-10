@@ -1,0 +1,949 @@
+%%
+%% This is file `sigconf.tex',
+%% generated with the docstrip utility.
+%%
+%% The original source files were:
+%%
+%% samples.dtx  (with options: `all,proceedings,sigconf')
+%%
+%% IMPORTANT NOTICE:
+%%
+%% For the copyright see the source file.
+%%
+%% Any modified versions of this file must be renamed
+%% with new filenames distinct from sigconf.tex.
+%%
+%% For distribution of the original source see the terms
+%% for copying and modification in the file samples.dtx.
+%%
+%% This generated file may be distributed as long as the
+%% original source files, as listed above, are part of the
+%% same distribution. (The sources need not necessarily be
+%% in the same archive or directory.)
+%%
+%%
+%% Commands for TeXCount
+%TC:macro \cite [option:text,text]
+%TC:macro \citep [option:text,text]
+%TC:macro \citet [option:text,text]
+%TC:envir table 0 1
+%TC:envir table* 0 1
+%TC:envir tabular [ignore] word
+%TC:envir displaymath 0 word
+%TC:envir math 0 word
+%TC:envir comment 0 0
+%%
+%% The first command in your LaTeX source must be the \documentclass
+%% command.
+%%
+%% For submission and review of your manuscript please change the
+%% command to \documentclass[manuscript, screen, review]{acmart}.
+%%
+%% When submitting camera ready or to TAPS, please change the command
+%% to \documentclass[sigconf]{acmart} or whichever template is required
+%% for your publication.
+%%
+%%
+\documentclass[sigconf]{acmart}
+
+\makeatletter
+\def\@acmconference{}
+\def\@acmdate{}
+\def\@acmvenue{}
+\makeatother
+
+\settopmatter{printacmref=false}
+%% Algorithm: algorithm provides the float, algpseudocode provides the pseudocode
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+%% Figure search path
+\graphicspath{{figures/}{./}}
+
+%%
+%% \BibTeX command to typeset BibTeX logo in the docs
+\AtBeginDocument{%
+  \providecommand\BibTeX{{%
+    Bib\TeX}}}
+
+%% ============================================================
+%% EDBT 2027 Submission
+%% Template: ACM SIG Proceedings format (acmart, sigconf)
+%% ============================================================
+
+%% Submission ID (assigned by CMT upon submission)
+%%\acmSubmissionID{}
+
+%% Enable author-year citation style if preferred
+%%\citestyle{acmauthoryear}
+
+
+%%
+%% end of the preamble, start of the body of the document source.
+
+%% Simple sequential example numbering (not section-based)
+\newtheorem{example}{Example}
+
+
+\settopmatter{printacmref=false}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\pagestyle{plain}
+
+\begin{document}
+
+%%
+%% The "title" command has an optional parameter,
+%% allowing the author to define a "short title" to be used in page headers.
+\title{Functional Dependency Violation Repair via Sequential Decision Making}
+
+
+\author{Anzhen Zhang}
+\affiliation{%
+  \institution{Shenyang Aerospace University}
+  \city{Shenyang}
+  \country{China}
+}
+\email{azzhang@sau.edu.cn}
+
+\author{Congrui Liu}
+\affiliation{%
+  \institution{Shenyang Aerospace University}
+  \city{Shenyang}
+  \country{China}
+}
+\email{liucongrui@stu.sau.edu.cn}
+
+\author{Tao Qiu}
+\affiliation{%
+  \institution{Shenyang Aerospace University}
+  \city{Shenyang}
+  \country{China}
+}
+\email{qiutao@sau.edu.cn}
+
+\author{Chuanyu Zong}
+\affiliation{%
+  \institution{Shenyang Aerospace University}
+  \city{Shenyang}
+  \country{China}
+}
+\email{zongcy@sau.edu.cn}
+
+\author{Rui Zhu}
+\affiliation{%
+  \institution{Shenyang Aerospace University}
+  \city{Shenyang}
+  \country{China}
+}
+\email{zhurui@sau.edu.cn}
+
+%%
+%% By default, the full list of authors will be used in the page
+%% headers. Often, this list is too long, and will overlap
+%% other information printed in the page headers. This command allows
+%% the author to define a more concise list
+%% of authors' names for this purpose.
+\renewcommand{\shortauthors}{Zhang et al.}
+
+%%
+%% The abstract is a short summary of the work to be presented in the
+%% article.
+
+\begin{abstract}
+Functional dependency (FD) violation repair is a core data cleaning task: when tuples sharing a left-hand-side (LHS) value disagree on their right-hand-side (RHS) value, the conflicting records must be diagnosed and corrected. Existing methods face two limitations. First, most rely on a minimum-cost principle, a poor proxy for correctness that often selects the wrong tuple or the wrong fix. Second, FDs interact through shared attributes, so a repair made in isolation can resolve one violation while triggering another under a different FD. Our key observation is that attributes correlated with an FD but lying outside it serve as evidence: a tuple whose FD values rarely co-occur with these attributes is likely wrong, and the value that co-occurs most is the likely fix. Building on this, we view FD violation repair as a sequential decision process and propose RL-FDRepair, a Markov Decision Process solved with Proximal Policy Optimization (PPO). The agent processes one inconsistent tuple at a time and decides in a single step whether it is wrong and how to repair it, using global features that flag erroneous tuples and per-FD evidence features that point to the wrong attribute and its replacement value. A row-lock cascade mechanism then tracks each repaired tuple across interacting FDs and assigns credit via Generalized Advantage Estimation (GAE). For training without ground truth, we construct a pseudo-clean reference by extracting conflict-free tuples and consensus rows from the dirty dataset. Experiments on four benchmark datasets against eleven baselines show that RL-FDRepair consistently achieves strong F1 scores, reaching up to 1.0 on Hospital and Soccer, while remaining robust under varying noise levels and LHS error ratios.
+\end{abstract}
+
+%%
+%% This command processes the author and affiliation and title
+%% information and builds the first part of the formatted document.
+\maketitle
+
+
+\section{Introduction}
+\label{sec:intro}
+Functional dependencies (FDs) are among the most fundamental integrity constraints in relational databases, and they serve as a cornerstone of data cleaning~\cite{b1,b2}. An FD $X \rightarrow Y$ states that any two tuples that agree on the left-hand-side (LHS) attributes $X$ must also agree on the right-hand-side (RHS) attribute $Y$. Equivalently, all tuples sharing the same LHS value form an \emph{LHS group} that should carry a single, consistent RHS value; when this fails, an FD violation arises. Consider the FD $\varphi_1: \textsf{ZIP} \rightarrow \textsf{CT}$ in Table~\ref{tab:motivating}, where tuples $t_1$ to $t_5$ share the LHS value $\textsf{ZIP}=99508$ but report inconsistent cities $\textsf{CT} \in \{\textsf{clayton}, \textsf{claytan}, \textsf{clanton}\}$. This single violation actually stems from two different sources. Tuple $t_4$ carries a wrong RHS value within an otherwise correct LHS group (an \emph{RHS error}), since its city should be \textsf{clayton}. Tuple $t_5$, by contrast, carries a wrong LHS value that places it in the wrong group entirely (an \emph{LHS error}), since its true ZIP is $35801$. The two can also occur together in one tuple as a \emph{simultaneous LHS--RHS error}.
+
+Repairing such violations means detecting the erroneous tuples, deciding which type of error underlies each one, and correcting them accordingly~\cite{b6,b8}. Existing methods fall into three paradigms: constraint-driven~\cite{b2,b33}, probabilistic~\cite{b1,b9}, and ML/RL-driven~\cite{b23,b38} (reviewed in Section~\ref{sec:related}). Despite their differences, they share two limitations that motivate this work.
+
+The first limitation is that existing methods cannot, at the same time, detect the error (which tuple is wrong and which attribute is wrong) and choose the correct repair value. Many constraint-driven methods rely on minimality~\cite{b2,b33,b7}, preferring the lowest-cost repair, such as the one with smallest edit distance from the dirty data; but low cost is a poor proxy for correctness. Consider tuple $t_5$ in the $\textsf{ZIP}=99508$ group, whose real error is in its LHS ($\textsf{ZIP}$ should be $35801$, while its city \textsf{clanton} is correct). Even once $t_5$ is correctly detected as the tuple to repair, it admits two fixes: rewrite its RHS from \textsf{clanton} to \textsf{clayton} at edit-distance cost $1$, or move it to its true group by changing its $\textsf{ZIP}$ from $99508$ to $35801$ at cost $4$. Minimality takes the cheaper RHS rewrite, overwriting a correct city and leaving the real LHS error untouched.
+
+The second limitation runs deeper: even a repair that is correct for one FD cannot be judged in isolation, because repairs under different FDs interact. A single repair can resolve one violation while triggering a new one elsewhere, an effect we call a \emph{cross-FD repair cascade}. Such interaction arises whenever two FDs share an attribute, since editing it to repair one constraint changes the value the other sees, and it is what makes repairing FD violations under a set of constraints NP-hard~\cite{b7}. The misrepair of $t_5$ shows the danger: once its \textsf{CT} becomes \textsf{clayton}, the tuple joins the $\textsf{CT}=\textsf{clayton}$ group under $\varphi_2: \textsf{CT} \rightarrow \textsf{ST}$, where its \textsf{ST} value \textsf{sl} conflicts with the \textsf{ak} of the others and creates a new violation.
+
+\begin{table}[htbp]
+\caption{Dirty data set and two FDs ($\varphi_1: \textsf{ZIP} \rightarrow \textsf{CT}$,$\varphi_2: \textsf{CT} \rightarrow \textsf{ST}$).}
+\label{tab:motivating}
+\centering
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{ccccc}
+\toprule
+\textbf{Row} & \textbf{$ZIP$} & \textbf{$CT$} & \textbf{$ST$} & \textbf{$CN$} \\
+\midrule
+$t_1$ & 99508 & clayton & ak & morgan \\
+$t_2$ & 99508 & clayton & ak & morgan \\
+$t_3$ & 99508 & clayton & ak & morgan \\
+$t_4$ & 99508 &
+\textcolor{red}{\textbf{claytan}}{\scriptsize(clayton)}
+& ak & morgan \\
+$t_5$ &
+\textcolor{red}{\textbf{99508}}{\scriptsize(35801)}
+& clanton & sl & madison \\
+$t_6$ &
+\textcolor{red}{\textbf{36854}}{\scriptsize(35801)}
+& clanton & \textcolor{red}{\textbf{ak}}{\scriptsize(sl)} & madison \\
+$t_7$ & 35801 & clanton & sl & madison \\
+$t_8$ & 35801 & clanton & sl & madison \\
+$t_9$ & 35801 & clanton & sl & madison \\
+$t_{10}$ & 36854 & valley & ak & chambers \\
+$t_{11}$ & 36854 & valley & ak & chambers \\
+\bottomrule
+\end{tabular}
+
+\vspace{2mm}
+\footnotesize
+\textit{Note:} Bold red values indicate errors; values in parentheses denote the corresponding correct values.
+\end{table}
+
+Together these limitations show that cost alone cannot drive a correct repair; the system needs an external signal of which tuples are wrong and what would correct them, and it must adapt as each repair changes the data. Our first insight is that attributes that lie outside the FDs but correlate with their LHS or RHS act as evidence, since a tuple's FD values and its correlated attributes are set together in clean data and co-occur often, whereas an error is introduced independently and breaks this co-occurrence. A tuple whose FD values rarely co-occur with its correlated attributes is thus likely wrong, and among the candidates the value that co-occurs most with those attributes is the likely fix. For instance, the county $\textsf{CN}$ correlates with $\textsf{ZIP}$: tuple $t_5$ has $\textsf{CN}=\textsf{madison}$, which co-occurs far more often with $\textsf{ZIP}=35801$ than with its current $99508$, exposing an LHS error and naming $35801$ as the repair, exactly the fix minimality misses.
+
+Our second insight addresses the interaction. Because one repair reshapes the data the next decision sees, repairs cannot be fixed in advance; the system must observe how each edit propagates through related FDs and adjust its remaining decisions to any cascade it triggers. FD violation repair is therefore naturally a \emph{sequential decision process}, where inconsistent tuples are repaired one at a time, each decision conditioned on the state left by the previous ones. Evidence tells the system which tuple and attribute to repair; sequential decision-making lets it absorb the consequences of that repair before making the next.
+
+To this end, we propose RL-FDRepair, which formulates FD violation repair as a \textit{Markov Decision Process (MDP)}. The agent processes one inconsistent tuple at a time and, at each step, decides in a single action whether the tuple is wrong and, if so, which attribute to repair and how to repair it. We address the two limitations as follows. (i) We develop a set of \textit{evidence-based features} (Sections~\ref{sec:detect} and~\ref{sec:evidence}) drawn from non-FD attributes correlated with the constraints. Global error-detection features signal whether a tuple is wrong, and per-FD evidence features signal which attribute is wrong, so the agent can judge the tuple and choose between an RHS fix and an LHS reassignment in one decision, ranking the candidate target groups for an LHS error. (ii) To handle the interactions among FDs, we build an \textit{FD dependency graph} (Section~\ref{sec:FD graph}) and a \textit{row-lock cascade mechanism} (Section~\ref{sec:rowlock}) that tracks how a repair spreads across related FDs, so the agent can learn under changing data states and cross-FD cascades.
+
+Training such an agent is itself hard, since the dirty data has no clean counterpart against which to judge a repair. A reward based only on consistency is easily gamed: the agent can overwrite each conflicting value with an arbitrary one, removing the violation while corrupting the data. We avoid this with a \textit{supervised pretraining} scheme (Section~\ref{sec:training}): we construct a pseudo-clean reference by extracting conflict-free tuples and consensus rows from the dirty dataset $D_{\text{pseudo}}$ (Section~\ref{sec:overview}) and inject synthetic errors into them to form a training set $\mathcal{D}_{\text{train}}$, giving paired noisy-clean episodes with cell-level supervision and no external ground truth. On top of this, \textit{PPO with Generalized Advantage Estimation (GAE)} (Section~\ref{sec:training}) lets the agent trace delayed violations back to earlier decisions, supporting optimization under long-horizon cascades.
+
+In summary, this paper makes the following contributions:
+\begin{enumerate}
+\item We introduce RL-FDRepair, the first reinforcement-learning-based framework for FD violation repair. The repair process is formulated as a row-level MDP, which enables adaptive decisions under changing data states.
+
+\item We propose an evidence-based repair mechanism that uses non-FD attributes to decide, in one step, both whether a tuple is wrong and which attribute is wrong, and to guide repair candidate selection. A row-lock cascade mechanism models cross-FD dependencies and cascading effects.
+
+\item We design a self-supervised pretraining scheme that requires no external ground truth. The consistent tuples and consensus rows from the dirty dataset serve as a clean reference and are perturbed with synthetic errors to construct paired noisy–clean trajectories, giving cell-level supervision that avoids the degenerate strategies a consistency-only reward would encourage.
+
+\item We conduct extensive experiments against eleven representative methods from three major paradigms. Results on four real-world datasets show consistent improvements over existing approaches, especially when LHS and RHS errors occur together.
+\end{enumerate}
+
+The rest of this paper is organized as follows. Section~\ref{sec:related} reviews related work on FD violation repair and RL for data management. Section~\ref{sec:problem} formalizes FD violation repair as an MDP and introduces the FD dependency graph. Section~\ref{sec:implementation} details the error-detection features, the repair-guidance features, the row-lock cascade mechanism, and the training procedure. Section~\ref{sec:experiments} reports experimental results and ablation studies, and Section~\ref{sec:conclusion} concludes.
+
+\section{Related Work}
+\label{sec:related}
+
+We group existing FD violation repair methods into three paradigms, and for each identify why it falls short on the two challenges raised in Section~\ref{sec:intro}: deciding which tuple and which attribute to repair, and handling cross-FD cascades.
+
+\noindent\textbf{Constraint-driven repair.}
+These methods detect violations within LHS-induced groups and pick replacement values that restore consistency. NADEEF~\cite{b2} casts repair as a minimum-cost set of value modifications, solved with heuristics over equivalence classes of cells forced to share a value, and BigDansing~\cite{b33} reuses this repair while contributing logical operators that compile rules into distributed dataflows for scalability. Daisy~\cite{b34} pushes cleaning into query execution, repairing denial-constraint violations on demand over only the data a query touches. Horizon~\cite{b35} observes that minimizing changes can produce incorrect value combinations and instead exploits dependency interactions through a conflict hypergraph to preserve the most frequent data patterns. The first two rely on minimality, which often picks a cheap RHS edit on the wrong tuple (Section~\ref{sec:intro}); and while Horizon does account for interacting dependencies, all four treat the LHS partitions as given and pick repairs in a single pass, without deciding which tuple is wrong or whether the error is in its LHS or its RHS.
+
+\noindent\textbf{Probabilistic repair.}
+These methods infer the most likely repair by modeling the distribution of data values. HoloClean~\cite{b1} compiles constraints, external signals, and co-occurrence statistics into a factor graph and infers cell values by MAP estimation, using minimality only as a soft prior rather than a hard objective. BClean~\cite{b9} automatically constructs a Bayesian network over the attributes and repairs by maximizing the posterior. Relative Trust~\cite{b36} treats both the data and the FDs as potentially unreliable and produces repairs at different trust levels between revising the data and revising the constraints, while the Unified model~\cite{b37} repairs data and constraints jointly under a minimum-description-length objective. By drawing on richer statistics, these methods produce better-informed RHS repairs, but they infer the RHS conditioned on the observed LHS, so an erroneous LHS skews the inferred distribution; and although several optimize a global objective, they do so in one shot, without modeling how each repair changes the violations that remain.
+
+\noindent\textbf{ML/RL-driven repair.}
+These methods learn repair strategies from data. Raha and Baran~\cite{b23} form a configuration-free detection--correction pair, but depend on user labels and correct each cell independently, ignoring FD structure. BoostClean~\cite{b38} selects an ensemble of detector--repair operators by boosting, optimizing downstream ML accuracy rather than FD consistency, and SCARE~\cite{b39} predicts replacement values that maximize their local likelihood under a bounded number of changes, without coordinating repairs across constraints. RLclean~\cite{b10}, ReClean~\cite{b11}, and Learn2Clean~\cite{b32} do apply reinforcement learning to cleaning, but their actions are at the operation level, which cleaning method or transformation to invoke next, rather than which value to assign to a specific tuple under FD constraints. None of these methods makes per-tuple decisions that distinguish LHS from RHS errors or reasons about cross-FD cascades.
+
+\section{Problem Formulation}
+\label{sec:problem}
+We first introduce the underlying definitions and cast FD violation repair as a Markov Decision Process (MDP) (Section~\ref{sec:prelim}). We then build the FD dependency graph that lets the agent anticipate cross-FD cascades (Section~\ref{sec:FD graph}), and finally instantiate the MDP as a concrete reinforcement learning agent (Section~\ref{sec:overview}).
+
+\subsection{Preliminaries}
+\label{sec:prelim}
+
+\begin{definition}[Functional Dependency]
+A functional dependency $\varphi$ over relation schema $R$ is an expression $X \rightarrow Y$ with $X \subseteq R$ the left-hand-side (LHS) determinant and $Y \in R$ the right-hand-side (RHS) dependent. An instance $D$ satisfies $\varphi$, written $D \models \varphi$, iff
+\begin{equation}
+\forall t_1, t_2 \in D: t_1[X] = t_2[X] \implies t_1[Y] = t_2[Y].
+\end{equation}
+\end{definition}
+
+That is, tuples agreeing on $X$ must agree on $Y$, and a pair that agrees on $X$ but disagrees on $Y$ witnesses a violation. Grouping tuples by their $X$ value localizes such violations.
+
+\begin{definition}[Conflict Group]
+For an FD $\varphi: X \rightarrow Y$ and dataset $D$, a conflict group $g$ is a maximal set of tuples that share an $X$ value $v_X$ but disagree on $Y$:
+\begin{equation}
+g = \{t \in D \mid t[X] = v_X \land |\{t'[Y] \mid t' \in D, t'[X] = v_X\}| > 1\}.
+\end{equation}
+\end{definition}
+
+\begin{example}
+Partitioning Table~\ref{tab:motivating} by $\text{ZIP}$ under $\varphi_1: \text{ZIP} \rightarrow \text{CT}$ yields three groups. Two are conflict groups: $\{t_1, \ldots, t_5\}$ ($\text{ZIP}=99508$), whose tuples carry three different cities, and $\{t_6, t_{10}, t_{11}\}$ ($\text{ZIP}=36854$), whose tuples disagree on the city. The third, $\{t_7, t_8, t_9\}$ ($\text{ZIP}=35801$), shares a single CT value and is consistent.
+\end{example}
+
+\begin{definition}[Inconsistent Tuple]
+A tuple $t \in D$ is inconsistent if it takes part in at least one FD violation, i.e., there is an FD $\varphi: X \rightarrow Y \in \mathcal{F}$ and a tuple $t' \in D$ with $t[X] = t'[X]$ but $t[Y] \neq t'[Y]$. We write the set of inconsistent tuples as $D_{\text{inc}}$.
+\end{definition}
+
+\begin{example}
+Take $\varphi_1: \text{ZIP} \rightarrow \text{CT}$ and $\varphi_2: \text{CT} \rightarrow \text{ST}$ on Table~\ref{tab:motivating}. Under $\varphi_1$, the $\text{ZIP}=99508$ group ($t_1$ to $t_5$) and the $\text{ZIP}=36854$ group ($t_6, t_{10}, t_{11}$) are in violation; under $\varphi_2$, the $\text{CT}=\textsf{clanton}$ group ($t_5$ to $t_9$) is in violation, since $t_6$ carries $\textsf{ST}=\textsf{ak}$ while the others carry $\textsf{sl}$. Taken together, all eleven tuples are inconsistent, each sharing a group with some disagreeing tuple under at least one FD.
+\end{example}
+
+Note that being inconsistent is not the same as being wrong; for example, $t_1, t_2, t_3$ are clean and are pulled in only because their group-mates $t_4$ and $t_5$ are dirty. So the repair task is not just to find the inconsistent tuples, but to decide, for each one, whether it is actually wrong and, if so, which attribute to change and what to change it to, so that the repaired dataset matches the unknown clean ground truth as closely as possible. We now state this goal formally.
+
+
+
+\begin{definition}[FD Violation Repair Problem]
+Given a dirty dataset $D_{\text{dirty}}$ and an FD set $\mathcal{F} = \{\varphi_1, \ldots, \varphi_k\}$, the goal is to produce a repaired dataset $D_{\text{repair}}$ that satisfies every FD while deviating as little as possible from the unknown clean ground truth $D_{\text{clean}}$:
+\begin{equation}
+\forall \varphi \in \mathcal{F}: D_{\text{repair}} \models \varphi.
+\end{equation}
+\end{definition}
+
+As established in Section~\ref{sec:intro}, deciding which tuples are wrong, diagnosing the wrong attribute, and ordering interacting repairs make this a sequential decision problem rather than a one-shot classification: each repair must be diagnosed before acting and conditioned on the data state left by earlier ones. Reinforcement learning models exactly this setting, so we cast FD violation repair as the following MDP.
+
+\begin{definition}[FD Violation Repair Markov Decision Process]
+\label{sec:MDP definition}
+The FD violation repair MDP is a five-tuple $\mathcal{M} = (\mathcal{S}, \mathcal{A}, P, R, \gamma)$, where:
+$\mathcal{S}$ is the state space, each $s \in \mathcal{S}$ encoding the current repair environment;
+$\mathcal{A}$ is the action space, each $a \in \mathcal{A}$ an admissible repair operation;
+$P: \mathcal{S} \times \mathcal{A} \rightarrow \mathcal{S}$ is the transition function, $s_{t+1} = P(s_t, a_t)$;
+$R: \mathcal{S} \times \mathcal{A} \rightarrow \mathbb{R}$ is the reward function, $r_t = R(s_t, a_t)$; and
+$\gamma \in [0,1]$ is the discount factor balancing immediate and future reward.
+\end{definition}
+
+\subsection{FD Dependency Graph}
+\label{sec:FD graph}
+
+The transition function $P$ hides a question the agent cannot ignore: when it repairs a violation under one FD, which \emph{other} FDs does the resulting state change? This is what drives the cross-FD cascade, and answering it requires knowing how the constraints are structurally linked.
+
+The link is through shared attributes. When two FDs $\varphi_i$ and $\varphi_j$ share an attribute, editing it to repair one constraint changes the value seen by the other, so their repairs become interdependent in one of three ways:
+\begin{itemize}
+    \item \textbf{Shared LHS} ($\text{LHS}(\varphi_i) \cap \text{LHS}(\varphi_j) \neq \emptyset$): reassigning a tuple's LHS to repair $\varphi_i$ also moves it to a new group under $\varphi_j$.
+    \item \textbf{Shared RHS} ($\text{RHS}(\varphi_i) \cap \text{RHS}(\varphi_j) \neq \emptyset$): overwriting the shared dependent value for $\varphi_i$ may break the consensus that satisfied $\varphi_j$.
+    \item \textbf{LHS--RHS overlap} ($\text{RHS}(\varphi_i) \cap \text{LHS}(\varphi_j) \neq \emptyset$): editing the RHS of $\varphi_i$ alters the LHS that groups tuples under $\varphi_j$, relocating them across its groups.
+\end{itemize}
+The last case is exactly the cascade described in Section~\ref{sec:intro}, where repairing $\textsf{CT}$ under $\varphi_1: \textsf{ZIP}\rightarrow\textsf{CT}$ changes the LHS of $\varphi_2: \textsf{CT}\rightarrow\textsf{ST}$ and triggers a new violation. We encode all three forms of interaction in a single structure.
+
+\begin{definition}[FD Dependency Graph]
+Given an FD set $\mathcal{F} = \{\varphi_1, \ldots, \varphi_k\}$, the FD dependency graph is an undirected graph $G = (\mathcal{V}, \mathcal{E})$ with one node per FD, $\mathcal{V} = \mathcal{F}$, and an edge $(\varphi_i, \varphi_j) \in \mathcal{E}$ whenever the two FDs share at least one attribute:
+\begin{equation}
+\big(\text{LHS}(\varphi_i) \cup \text{RHS}(\varphi_i)\big) \cap \big(\text{LHS}(\varphi_j) \cup \text{RHS}(\varphi_j)\big) \neq \emptyset.
+\end{equation}
+\end{definition}
+
+An edge thus marks a pair of FDs whose repairs may affect each other. Figure~\ref{fig:Dependency Graph} shows the graph for the benchmark Hospital dataset used in our experiment, which exhibits all three interaction types. The FDs $\varphi_1: \textsf{hospitalName}\rightarrow\textsf{zipcode}$ and $\varphi_2: \textsf{hospitalName}\rightarrow\textsf{phoneNumber}$ are joined by a shared LHS (\textsf{hospitalName}), so reassigning that LHS affects both. Both connect to $\varphi_3: \textsf{providerNumber}\rightarrow\textsf{hospitalName}$ through an LHS--RHS overlap on \textsf{hospitalName}, and $\varphi_1$ connects to $\varphi_4: \textsf{zipcode}\rightarrow\textsf{emergencyService}$ through the overlap on \textsf{zipcode}. By making these links explicit, the graph tells the agent which FDs to re-examine after each repair, serving as the structural backbone of the row-lock cascade mechanism (Section~\ref{sec:rowlock}).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{FD Dependency Graph.pdf}
+\caption{FD dependency graph for the Hospital dataset.}
+\label{fig:Dependency Graph}
+\end{figure}
+
+\subsection{Overview of RL for FD Violation Repair}
+\label{sec:overview}
+With the MDP defined and the dependency graph in place, we instantiate the five components $(\mathcal{S}, \mathcal{A}, P, R, \gamma)$ as a reinforcement learning agent, shown in Figure~\ref{fig:system overview}. The agent processes one inconsistent tuple at a time and follows it through the dependency graph as its repairs cascade.
+
+\begin{figure*}[htbp]
+\centering
+\includegraphics[width=\textwidth]{System of OverView.pdf}
+\caption{System overview of RL-FDRepair.}
+\label{fig:system overview}
+\end{figure*}
+
+\noindent\textbf{1) Environment.}
+The environment holds the training dataset $D$, the FD set $\mathcal{F}$, the FD dependency graph $G$, and the inconsistent tuples $D_{\text{inc}}$ extracted from $D$. It runs in discrete \textbf{steps}: each step presents the state of one inconsistent tuple, accepts a repair action, applies it to $D$, re-detects inconsistent tuples, and returns a scalar reward, forming a transition $(s_t, a_t, r_t, s_{t+1})$. The agent works through the inconsistent tuples one at a time. An \textit{episode} locks onto a single tuple and, through the row-lock cascade mechanism (Section~\ref{sec:rowlock}), follows it across the FD dependency graph as its repairs reach neighboring FDs, ending when the tuple no longer takes part in any violation or a step budget $K_{\max}$ is reached.
+
+\noindent\textbf{2) State.}
+Encoding the whole dataset is not practical, so the state summarizes only the current tuple together with the groups and FDs it takes part in, as a fixed-length feature vector. Its features fall into three groups: those that judge whether the tuple is wrong, those that guide how to repair it, and one that places it within an ongoing cascade.
+
+\emph{Error-detection features.} Two features signal whether the tuple is the actual error rather than a clean tuple pulled into the violation. (1) The \emph{violation count} is the number of tuples that conflict with the current one, summed over all FDs it takes part in; a larger count points to the tuple being wrong. (2) The \emph{correct probability} is the conditional probability of the tuple's FD values given its correlated attributes; a low value means the tuple is unlikely under its context, and so more likely wrong. We detail both in Section~\ref{sec:detect}.
+
+\emph{Repair-guidance features.} Three features guide the fix once a tuple is judged wrong. (1) The evidence signals $E_{\text{intra}}$ and $E_{\text{inter}}$ (Section~\ref{sec:evidence}) compare the tuple's current group against the alternatives, indicating whether the error is in the RHS or the LHS. (2) The frequencies of the candidate RHS values give the options for an RHS repair. (3) The evidence-ranked candidate groups (Section~\ref{sec:evidence}) rank where the tuple could be reassigned when the error is in its LHS.
+
+\emph{Cascade context.} A final feature records the step index and the local FD interaction status under the row-lock mechanism (Section~\ref{sec:rowlock}), tying the state to the cascade the episode is following.
+
+\noindent\textbf{3) Action.}
+At each step the agent picks one of three kinds of action for the current tuple. An \emph{RHS repair} sets the tuple's RHS to one of the top-$K$ candidate values in its group, treating the violation as an RHS error. An \emph{LHS repair} reassigns the tuple to one of the top-$S$ evidence-ranked candidate groups of Section~\ref{sec:evidence}, treating it as an LHS error and moving the tuple to where it more likely belongs. A \emph{no-op} leaves the tuple unchanged, either because the agent judges it correct after all, or because it prefers to wait and decide at a later cascade step. The action space is discrete:
+\[
+\mathcal{A} = \{a_{\text{RHS}}^{(k)}\}_{k=1}^{K} \;\cup\; \{a_{\text{LHS}}^{(s)}\}_{s=1}^{S} \;\cup\; \{a_{\text{noop}}\},
+\]
+where $a_{\text{RHS}}^{(k)}$ assigns the $k$-th RHS candidate and $a_{\text{LHS}}^{(s)}$ reassigns the tuple to the $s$-th candidate group, with $K$ and $S$ tunable hyperparameters that bound the number of candidates considered.
+
+\noindent\textbf{4) Reward.}
+A reward based on coarse signals such as the drop in conflict groups or FD violations is easily gamed by degenerate strategies (e.g., collapsing all values in a group), which remove violations without really repairing the data. We therefore give a cell-level signal using a \emph{clean reference} $\mathcal{D}_{\text{pseudo}}$, formed from the tuples that violate no FD in the dirty data. If such FD-consistent tuples are rare, we augment $\mathcal{D}_{\text{pseudo}}$ by extracting agreement rows whose RHS values are the majority across all FDs. Such tuples are consistent with every constraint, so they are a sound clean sample to learn from. Injecting synthetic errors into $\mathcal{D}_{\text{pseudo}}$ produces the training set $\mathcal{D}_{\text{train}}$ of paired noisy-clean episodes, where the correct value of each injected error is known. The reference also serves as the basis for supervised pretraining (Section~\ref{sec:training}).
+
+We inject the two error types so that each one creates a real FD violation, matching the LHS and RHS errors of Section~\ref{sec:intro}. From a clean tuple, we randomly pick an FD $\varphi: X \rightarrow Y$ and corrupt one of its attributes, restricting injection to FD-related attributes so the error is one the repair task targets. For an LHS error, we replace the tuple's value on $X$ with another from the domain of $X$, moving it into an existing group whose RHS differs, so it now disagrees on $Y$. For an RHS error, we corrupt the tuple's $Y$ value either by replacing it with another value from the domain of $Y$ or by adding a typo, breaking its agreement with the group on $Y$. In both cases we require the edit to actually introduce a conflict, resampling whenever it leaves the data consistent, for example an LHS value landing in a group that already shares the tuple's RHS, or an RHS value coinciding with the group's existing one. This ensures every training episode contains a detectable violation with a known repair target, giving the cell-level supervision that drives both the reward and the pretraining labels.
+
+Against the clean reference, the agent receives a reward with three parts: a row-level term for deciding whether a tuple is wrong, a cell-level term for the quality of the repair itself, and shaping penalties that discourage wasteful or invalid behavior.
+
+\textit{Detection reward (row level).} This term judges whether the agent acts on the right tuples, distinguishing the four mutually exclusive outcomes of its decision:
+\begin{equation}
+r_t^{\text{row}} = R_{\text{repair}}\,\mathbb{I}_{\text{err,mod}} + R_{\text{skip}}\,\mathbb{I}_{\text{clean,skip}} - P_{\text{edit}}\,\mathbb{I}_{\text{clean,mod}} - P_{\text{miss}}\,\mathbb{I}_{\text{err,skip}},
+\end{equation}
+rewarding a correctly repaired erroneous row ($R_{\text{repair}}$) and a correctly skipped clean row ($R_{\text{skip}}$), while penalizing an unnecessary edit to a clean row ($P_{\text{edit}}$) and a missed error left unrepaired ($P_{\text{miss}}$).
+
+\textit{Repair reward (cell level).} Once a tuple is acted on, this term scores the edit itself by its effect on FD consistency:
+\begin{equation}
+r_t^{\text{base}} = w_{+}\, n_t^{\text{fix}} - w_{-}\, n_t^{\text{break}} - \alpha,
+\end{equation}
+where $n_t^{\text{fix}}$ and $n_t^{\text{break}}$ count the violations the action fixes and breaks, $w_{-} > w_{+}$ discourages cascading corruption, and $\alpha$ regularizes against over-aggressive edits.
+
+\textit{Shaping penalties.} These terms steer the agent away from degenerate behavior:
+\begin{equation}
+r_t^{\text{shape}} = - \beta\, \mathbb{I}_{\text{invalid}} - \gamma\, \mathbb{I}_{\text{repeat}} - R_{\text{term}}\, \mathbb{I}_{\text{terminal}},
+\end{equation}
+penalizing invalid actions, repeated edits to the same cell, and poor terminal completion, with $\beta$, $\gamma$, and $R_{\text{term}}$ controlling their severity.
+
+The overall reward sums the three parts,
+\begin{equation}
+r_t = r_t^{\text{row}} + r_t^{\text{base}} + r_t^{\text{shape}}.
+\end{equation}
+
+\noindent\textbf{5) Agent and Policy.}
+The agent is an Actor--Critic policy trained with Proximal Policy Optimization (PPO)~\cite{b3}; we detail training in Section~\ref{sec:training}.
+
+\section{Implementation Details}
+\label{sec:implementation}
+
+This section describes the four components that realize RL-FDRepair: the error-detection features that judge whether a tuple is wrong (Section~\ref{sec:detect}), the repair-guidance features that decide which attribute is wrong and what value to set (Section~\ref{sec:evidence}), the row-lock cascade mechanism (Section~\ref{sec:rowlock}), and the two-stage training procedure (Section~\ref{sec:training}).
+
+
+\subsection{Error-Detection Features}
+\label{sec:detect}
+
+A tuple that takes part in a violation is not necessarily wrong; it may be a clean tuple dragged into a conflict by a dirty neighbor (Example~2). Before deciding how to repair a tuple, the agent therefore needs a signal of whether the tuple is wrong at all. We give two such features. Both look at every FD the tuple takes part in, so together they give a global picture of how it fits the data.
+
+The first feature counts how many tuples the current one conflicts with, across every FD it takes part in.
+A tuple that disagrees with many others is more likely the source of the error than one that conflicts with only a few.
+
+\begin{definition}[Violation Count]
+For a tuple $t \in D$ and FD set $\mathcal{F}$, the violation count is
+\begin{equation}
+\textsf{vc}(t) =
+\Big| \bigcup_{\varphi: X \rightarrow Y \in \mathcal{F}}
+\{ t' \in D \mid t'[X] = t[X] \land t'[Y] \neq t[Y] \} \Big|,
+\end{equation}
+the number of tuples that agree with $t$ on some FD's LHS but disagree on its RHS.
+\end{definition}
+
+\begin{example}
+Take $\varphi_1: \textsf{ZIP} \rightarrow \textsf{CT}$ and $\varphi_2: \textsf{CT} \rightarrow \textsf{ST}$ in Table~\ref{tab:motivating}. The clean tuple $t_1$ conflicts only under $\varphi_1$, with $t_4$ and $t_5$ in its $\textsf{ZIP}=99508$ group, so $\textsf{vc}(t_1)=2$. The erroneous tuple $t_5$ conflicts with $t_1, t_2, t_3, t_4$ under $\varphi_1$ and with $t_6$ under $\varphi_2$ (its $\textsf{ST}=\textsf{sl}$ against $t_6$'s $\textsf{ak}$ in the $\textsf{CT}=\textsf{clanton}$ group), so $\textsf{vc}(t_5)=5$. The wrong tuple has the larger count, a difference that becomes clear only when both FDs are counted together.
+\end{example}
+
+The violation count says how widely a tuple disagrees, but not whether its own values are plausible. The second feature captures this. Our key observation is that an attribute lying outside the FDs but correlated with them is seldom wrong in the same tuple, so such attributes act as trustworthy context. We collect them once.
+
+\begin{definition}[Evidence Set]
+For an FD set $\mathcal{F}$ over schema $R$, let the FD attributes be those appearing in the LHS or RHS of some $\varphi \in \mathcal{F}$. The evidence set $E$ is the set of non-FD attributes correlated with at least one FD attribute.
+\end{definition}
+
+Using the evidence set as context, the correct probability scores how plausible a tuple's own FD values are.
+
+\begin{definition}[Correct Probability]
+For a tuple $t \in D$, let $A(t)$ be the union of the LHS and RHS attributes of the FDs that $t$ violates. The correct probability is the conditional probability of $t$'s values on $A(t)$ given its evidence values,
+\begin{equation}
+\textsf{cp}(t) = P\big(t[A(t)] \,\big|\, t[E]\big),
+\end{equation}
+estimated from co-occurrence counts in $D$.
+\end{definition}
+
+A correct value co-occurs often with its evidence context, while a corrupted value rarely does, since the error was introduced independently of that context. A clean tuple therefore keeps its FD values and evidence values in agreement and scores a high $\textsf{cp}$, whereas a tuple whose FD values were corrupted breaks this agreement and scores a low $\textsf{cp}$, flagging it as likely wrong.
+
+% Both features are global, taken across all the FDs a tuple violates: together they tell the agent how widely a tuple disagrees and how unlikely its own values are. Once these signals mark a tuple as wrong, the agent still has to decide which attribute to change, which the next features address.
+
+\subsection{Repair-Guidance Features}
+\label{sec:evidence}
+
+Once a tuple is judged wrong, the agent must decide where the error lies: in the RHS or the LHS, and if in the LHS, which group the tuple truly belongs to. The evidence set answers this, now read per FD rather than globally. The idea is simple: a tuple with only an RHS error still has the right LHS, so it matches the evidence of its current group; a tuple with an LHS error sits in the wrong group, so it clashes with that group's evidence but matches its true group's. We turn this into two scores, both over the evidence attributes correlated with the FD under repair, $E_\varphi \subseteq E$: how well a tuple fits its current group signals the error type, and how well it fits each alternative group signals where it belongs.
+
+\noindent\textbf{Intra-group evidence.}
+For a tuple $t$ in its current group $g$, the intra-group score measures how well $t$'s evidence values agree with the rest of $g$:
+\begin{equation}
+E_{\text{intra}}(t, g) =
+\frac{1}{|E_\varphi|} \sum_{e \in E_\varphi}
+\frac{|\{t' \in g \setminus \{t\} : t'[e] = t[e]\}|}{|g| - 1}.
+\end{equation}
+A high $E_{\text{intra}}$ means $t$ fits its current group, which indicates at an RHS error, since the LHS that placed it there is backed by the evidence.
+
+\noindent\textbf{Inter-group evidence.}
+Applying $E_{\text{intra}}(t, g')$ to every other group $g' \in \mathcal{G}_X \setminus \{g\}$ (where $\mathcal{G}_X$ is the set of all groups under the LHS attribute $X$) scores how well $t$ would fit each alternative; ordering these scores ranks the candidate groups by evidence support. The inter-group score is the top of this ranking,
+\begin{equation}
+E_{\text{inter}}(t) =
+\max_{g' \in \mathcal{G}_X \setminus \{g\}} E_{\text{intra}}(t, g'),
+\end{equation}
+with the maximizing group the strongest reassignment candidate. A high $E_{\text{inter}}$ means $t$ matches its current group poorly yet fits another group well, which indicates an LHS error.
+
+These scores yield the candidate repairs for each error type. For an \emph{RHS error}, the agent sets the RHS to one of the top-$K$ most frequent values in the tuple's current group. For an \emph{LHS error}, it reassigns the tuple to one of the top-$S$ candidate groups, obtained by ranking the alternative groups by $E_{\text{intra}}(t, g')$, the groups the tuple most likely belongs to. A \emph{simultaneous LHS--RHS error} is split into an LHS reassignment followed by an RHS fix, which the row-lock mechanism (Section~\ref{sec:rowlock}) applies in sequence across steps.
+
+\begin{example}
+Consider $\varphi_1: \textsf{ZIP} \rightarrow \textsf{CT}$ in Table~\ref{tab:motivating}, where the county \textsf{CN} is correlated with \textsf{ZIP}, so $E_{\varphi_1} = \{\textsf{CN}\}$. Take the inconsistent tuple $t_5$ ($\textsf{CN}=\textsf{madison}$), currently in $g_{99508}$. Its group-mates $t_1, t_2, t_3, t_4$ all have $\textsf{CN}=\textsf{morgan}$, so $E_{\text{intra}}(t_5, g_{99508}) = 0/4 = 0$: $t_5$ matches none of its current group's evidence. Among the alternatives, $E_{\text{intra}}(t_5, g_{35801}) = 1$, since all members share $\textsf{CN}=\textsf{madison}$, giving $E_{\text{inter}}(t_5) = 1$. The low intra- and high inter-group scores indicate an LHS error, with $\textsf{ZIP}=35801$ the leading candidate.
+\end{example}
+
+
+\subsection{Row-Lock Cascade Mechanism}
+\label{sec:rowlock}
+
+The evidence features help the agent decide what to repair, but repairs are not independent: fixing one violation can expose or create another under a related FD. To handle these cross-FD cascades, we use the \textbf{row-lock principle}: once a tuple is selected, the environment stays on it for the whole episode. After each repair, it consults the FD dependency graph to find which neighboring FDs the edit may have affected, and switches the active FD to a newly exposed violation rather than stopping. The episode thus follows the tuple through the graph until it is consistent under every reachable FD or a step budget $K_{\max}$ is reached, forming a single repair trajectory
+\[
+\Gamma(t)=
+\{(\varphi_1,s_1,a_1,r_1),\ldots,(\varphi_{K_{\max}},s_{K_{\max}},a_{K_{\max}},r_{K_{\max}})\},
+\]
+where $(\varphi_k,s_k,a_k,r_k)$ is the active FD, state, action, and reward at step $k$. A compound error is thereby split into a sequence of single-attribute repairs, each diagnosed against the state the previous one produced.
+
+\begin{example}
+Tuple $t_6$ in Table~\ref{tab:motivating} has two errors at once: a wrong $\textsf{ZIP}$ ($36854$, true $35801$) and a wrong $\textsf{ST}$ ($\textsf{ak}$, true $\textsf{sl}$). Under $\varphi_1: \textsf{ZIP}\rightarrow\textsf{CT}$, its $\textsf{CT}=\textsf{clanton}$ disagrees with the \textsf{valley} of group $g_{36854}$; since its $\textsf{CN}=\textsf{madison}$ matches group $35801$, the agent reassigns $\textsf{ZIP}$ to $35801$, where $\textsf{CT}=\textsf{clanton}$ now fits. Because $\textsf{CT}$ links $\varphi_1$ and $\varphi_2$ in the dependency graph, the environment then re-checks $t_6$ under $\varphi_2: \textsf{CT}\rightarrow\textsf{ST}$ and finds that its $\textsf{ST}=\textsf{ak}$ disagrees with the new group's \textsf{sl}, which it repairs.
+\end{example}
+
+Note that locking the episode to one tuple also makes credit assignment work: the trajectory captures the full cascade a tuple triggers, so the cumulative return reflects whether the agent fixed the root cause. Repairing the originating error earns the downstream rewards of a resolved cascade, while a wrong action that spawns new violations is penalized across the same trajectory.
+
+\subsection{Training Procedure}
+\label{sec:training}
+
+Recall from Section~\ref{sec:overview} that a consistency-only reward is easily gamed, which is why we supervise against the clean reference $\mathcal{D}_{\text{pseudo}}$. Training builds on this in two stages: supervised pretraining on $\mathcal{D}_{\text{train}}$ to establish a competent initial policy, followed by PPO fine-tuning with GAE to learn sequential repair strategies through interaction. Algorithm~\ref{alg:ppo_epoch} summarizes the loop.
+
+\noindent\textbf{Stage 1: Supervised pretraining.}
+Because $\mathcal{D}_{\text{train}}$ is built by injecting synthetic errors into $\mathcal{D}_{\text{pseudo}}$, the correct repair for each tuple is known. We pretrain the policy network on these labels with a cross-entropy loss, giving the agent a warm start: it enters PPO already able to pick plausible repairs rather than exploring from scratch.
+
+\noindent\textbf{Stage 2: PPO fine-tuning.}
+The pretrained policy is then refined with Proximal Policy Optimization (PPO)~\cite{b3} in the row-lock environment. We use an Actor--Critic architecture with a shared context encoder ($35 \rightarrow 128 \rightarrow 64$) using LayerNorm and ReLU to produce FD-aware tuple representations. The policy is split into two action heads, one for RHS correction and one for LHS reassignment, each scoring its top-ranked candidates so that the heads match the RHS and LHS actions of Section~\ref{sec:overview}.
+
+The policy $\pi_\theta(a_t|s_t)$ and value function $V_\phi(s_t)$ are optimized on trajectories collected from the environment, where each step is the row-lock transition described earlier. To reduce variance in the policy gradient, we use Generalized Advantage Estimation (GAE),
+\[
+A_t^{\text{GAE}} =
+\sum_{l=0}^{\infty} (\gamma \lambda)^l \delta_{t+l},
+\quad
+\delta_t = r_t + \gamma V_\phi(s_{t+1}) - V_\phi(s_t),
+\]
+where $\lambda \in [0,1]$ trades off bias and variance. GAE spreads credit for a delayed violation back over the earlier decisions in the same cascade, exactly the long-horizon attribution the row-lock trajectory is designed to support. The policy is updated with the clipped PPO objective,
+\begin{equation}
+L^{\text{PPO}} =
+\mathbb{E}\!\left[
+\min\!\left(
+\rho_t(\theta)\, A_t^{\text{GAE}},\;
+\text{clip}(\rho_t(\theta), 1-\epsilon, 1+\epsilon)\, A_t^{\text{GAE}}
+\right)
+\right],
+\end{equation}
+where the importance ratio is
+\begin{equation}
+\rho_t(\theta) = \frac{\pi_\theta(a_t|s_t)}{\pi_{\theta_{\text{old}}}(a_t|s_t)}.
+\end{equation}
+
+
+\begin{algorithm}[t]
+\caption{PPO Epoch}
+\label{alg:ppo_epoch}
+\hrule
+\vspace{2pt}
+\begin{algorithmic}[1]
+\Require Clean reference $D_{\text{pseudo}}$ (tuples violating no FD), FD set $\mathcal{F}$, policy $\pi_\theta$, value function $V_\phi$, buffer size $B$, step budget $K_{\max}$, PPO epochs $n_{\text{ppo}}$
+\Ensure Updated parameters $\pi_\theta, V_\phi$
+
+\State Inject synthetic errors into the reference: $D \gets \text{InjectErrors}(D_{\text{pseudo}}, \eta)$
+\State Initialize environment with FD constraints $\mathcal{F}$
+\State Detect inconsistent tuples $D_{\text{inc}} \gets \text{DetectInconsistent}(D, \mathcal{F})$
+\State Initialize rollout buffer $\mathcal{B} \gets \emptyset$
+
+\For{each inconsistent tuple $r \in D_{\text{inc}}$}
+
+    \State Initialize row-lock environment $\text{env}$ for target tuple $r$
+
+    \While{$r$ takes part in a violation under any FD and step $< K_{\max}$}
+
+        \State Observe state $s \sim \text{env}$
+        \State Select action $a \sim \pi_\theta(\cdot \mid s, \text{mask})$
+        \State Execute action: $(D, s', r_t) \gets \text{env.step}(a)$
+        \State Store transition: $\mathcal{B} \gets \mathcal{B} \cup (s, a, r_t, s', V_\phi(s))$
+
+    \EndWhile
+
+    \If{$|\mathcal{B}| \ge B$}
+        \State Compute advantages using GAE
+        \State Update $\pi_\theta, V_\phi$ via PPO for $n_{\text{ppo}}$ epochs
+        \State Reset buffer $\mathcal{B} \gets \emptyset$
+    \EndIf
+
+\EndFor
+
+\If{$|\mathcal{B}| > 0$}
+    \State Compute GAE and perform a final PPO update
+\EndIf
+
+\State \Return $\pi_\theta, V_\phi$
+\end{algorithmic}
+\vspace{2pt}
+\hrule
+\end{algorithm}
+
+\section{Experiments}
+\label{sec:experiments}
+
+We evaluate RL-FDRepair against eleven baselines spanning the three paradigms of Section~\ref{sec:related}, on four benchmark datasets. Three questions guide the study: how does RL-FDRepair compare overall across error rates (Section~\ref{sec:overall}), how robust is it as LHS errors come to dominate (Section~\ref{sec:lhs_repair}), and what does each component contribute (Section~\ref{sec:ablation})?
+
+
+\subsection{Experimental Setup}
+
+\noindent\textbf{Datasets.}
+We use four real-world benchmarks (Table~\ref{tab:datasets}), chosen to stress different aspects of FD violation repair. Flights has a clean FD structure with well-separated LHS and RHS columns; Soccer features bidirectional FDs, where one column is the LHS of one FD and the RHS of another, and offers rich non-FD attributes for evidence; Hospital is the most constraint-dense, with 14 FDs over composite LHS structures; and Beers has a simple FD structure but many non-FD columns, stressing evidence-column selection.
+
+\begin{table}[t]
+\caption{Dataset statistics and characteristics.}
+\label{tab:datasets}
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Dataset} & \textbf{\# Rows} & \textbf{\# FDs} & \textbf{\# Columns} & \textbf{Key challenge} \\
+\midrule
+Flights  & 2,000  & 4  & 5  & Clean LHS/RHS separation \\
+Soccer   & 1,000  & 3  & 10 & Bidirectional FDs, rich evidence \\
+Hospital & 1,000  & 15 & 20 & Dense multi-FD constraints \\
+Beers    & 2,410  & 3  & 11 & Many non-FD columns \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+\noindent\textbf{Baselines.}
+We compare against eleven published systems, grouped by the three paradigms of Section~\ref{sec:related}.
+\emph{Constraint-driven:} NADEEF~\cite{b2} finds a minimum-cost set of value modifications over equivalence classes; BigDansing~\cite{b33} applies the same repair at scale through distributed dataflow operators; Daisy~\cite{b34} repairs denial-constraint violations on demand during query execution; and Horizon~\cite{b35} selects pattern-preserving repairs via a conflict hypergraph.
+\emph{Probabilistic:} HoloClean~\cite{b1} infers cell values by MAP estimation over a factor graph of constraints and statistics; BClean~\cite{b9} repairs by maximizing the posterior of an automatically constructed Bayesian network; Relative Trust~\cite{b36} jointly revises data and FDs at varying trust levels; and Unified~\cite{b37} repairs both under a minimum-description-length objective.
+\emph{ML/RL-driven:} BoostClean~\cite{b38} boosts an ensemble of detector--repair operators for downstream accuracy; SCARE~\cite{b39} predicts maximum-likelihood replacements under bounded changes; and Baran~\cite{b23} corrects each cell from a context-aware ensemble of models.
+
+We also evaluate four ablations of RL-FDRepair, each removing one component of Section~\ref{sec:implementation}: \emph{w/o Evidence} drops the repair-guidance evidence features ($E_{\text{intra}}$, $E_{\text{inter}}$) of Section~\ref{sec:evidence}; \emph{w/o Row-Lock} replaces the row-lock cascade of Section~\ref{sec:rowlock} with a single-tuple environment that does not track cascades; \emph{w/o Pretrain} runs PPO from random initialization, skipping the supervised warm start; and \emph{Supervised Only} keeps the pretraining but omits PPO fine-tuning.
+
+\noindent\textbf{Error injection.}
+We inject synthetic errors into clean data under the two-category model used for training (Section~\ref{sec:training}). An LHS error replaces a tuple's LHS value with another existing value, misassigning it to a wrong conflict group; an RHS error applies value replacement or spelling perturbation, breaking consistency within the group. The total error rate ranges over $\{0.05, \ldots, 0.30\}$. By default the LHS error ratio (the fraction of errors that are LHS errors) is $0.5$, giving an equal LHS/RHS mix; in Section~\ref{sec:lhs_repair} we vary it from $0.2$ to $1.0$ to isolate sensitivity to LHS errors.
+
+\noindent\textbf{Metrics.}
+We evaluate repair quality at the cell level against the clean ground truth. A repaired cell counts as a true positive only if it was dirty and is restored to its ground-truth value; precision is the fraction of \emph{modified} cells that are correct, recall is the fraction of \emph{dirty} cells that are correctly repaired, and F1 is their harmonic mean. We additionally report per-method execution time to assess efficiency.
+
+\noindent\textbf{Implementation.}
+For the baseline methods, we adopt their official or community-recommended implementations. NADEEF\footnote{\url{https://github.com/qcri/NADEEF}}, HoloClean\footnote{\url{https://github.com/HoloClean/holoclean}}, BClean\footnote{\url{https://github.com/thethe-github/BClean}}, and Baran\footnote{\url{https://github.com/BigDaMa/raha}} use their public implementations. The remaining seven baselines (BigDansing, Horizon, Daisy, Relative Trust, Unified, BoostClean, and SCARE) are run using the implementations from the Automatic-Data-Repair repository\footnote{\url{https://github.com/WelkinNi/Automatic-Data-Repair}}. All methods are run on the same workstation: an Intel(R) Core(TM) i5-12400F (2.50\,GHz) with 16\,GB RAM under Windows 11. RL-FDRepair is implemented in PyTorch; the actor and critic share a context encoder ($37 \rightarrow 128 \rightarrow 64$) with LayerNorm and ReLU, and the action heads expose the top-$K$ RHS and top-$S$ LHS candidates ($K = S = 3$). We train with PPO (clip range $\epsilon$, GAE trade-off $\lambda$) on reward weights $w_{-} > w_{+}$, step penalty $\alpha$, and shaping terms $\beta = 0.5$, $\gamma = 0.3$, $R_{\text{term}} = 5.0$, capping each episode at $K_{\max} = 20$ steps. The clean reference $\mathcal{D}_{\text{pseudo}}$ and training set $\mathcal{D}_{\text{train}}$ are constructed per dataset as described in Section~\ref{sec:training}.
+
+\subsection{Overall Comparison}
+\label{sec:overall}
+
+Across the four datasets and all error rates (Fig.~\ref{fig:overall_f1}, with a $30\%$ summary in Table~\ref{tab:summary}), RL-FDRepair is the only method that stays strong everywhere. It attains the top F1 on Hospital at every error rate ($1.000$) and leads on Flights and Soccer at most rates; on Beers it trails BClean only marginally ($0.804$ vs.\ $0.828$ at $30\%$). No baseline matches this consistency.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{fig_ieee_10methods.png}
+\caption{F1 across error rates (5\%--30\%) for all methods on the four datasets.}
+\label{fig:overall_f1}
+\end{figure}
+
+The baselines, by contrast, each fail somewhere. Among the constraint-driven group, NADEEF, BigDansing, and Horizon perform adequately only on Hospital, whose 15 FDs give dense coverage; on the sparse-FD Flights and Beers their F1 stays below $0.30$, as majority-voting and pattern-based repair leave most errors unreachable. The probabilistic methods are brittle: HoloClean reaches $1.000$ on Flights ($\ge 15\%$ error) yet collapses to $0.000$ on Soccer beyond $20\%$, where co-occurrence corruption prunes correct values from its candidate domains, and Unified fails entirely on Hospital ($0.000$) because internal type-casting erases the error signal. The ML/RL-driven baselines (BoostClean, SCARE, Baran) fail uniformly on value-swap errors: their detectors target outliers, pattern deviations, and typos, and cannot flag a swapped value that is itself drawn from the clean domain. Finally, Daisy and Relative Trust time out on every dataset, the former from an $O(n^2)$ self-theta-join, the latter from combinatorial state-tree enumeration over attribute--FD combinations.
+
+BClean's edge on Beers is instructive: the dataset's near-star FD structure (\textsf{brewery\_id} determines almost everything) yields sharply peaked conditionals well suited to its Bayesian network. The same reliance, however, sinks its Recall on richer topologies (F1 $0.667$ on Flights, $<\!0.16$ on Soccer), whereas RL-FDRepair holds up across all four. RL-FDRepair's execution time is moderate (Table~\ref{tab:summary}), well within the practical range and far below the methods that time out.
+
+\begin{table*}[htbp]
+\caption{Precision (\%), Recall (\%), F1, and execution time (s) at 30\% error rate.}
+\label{tab:summary}
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lcccccccccccccccc}
+\toprule
+& \multicolumn{4}{c}{\textbf{Flights}} & \multicolumn{4}{c}{\textbf{Soccer}} & \multicolumn{4}{c}{\textbf{Hospital}} & \multicolumn{4}{c}{\textbf{Beers}} \\
+\cmidrule(lr){2-5} \cmidrule(lr){6-9} \cmidrule(lr){10-13} \cmidrule(lr){14-17}
+\textbf{Method} & \textbf{P} & \textbf{R} & \textbf{F1} & \textbf{T} & \textbf{P} & \textbf{R} & \textbf{F1} & \textbf{T} & \textbf{P} & \textbf{R} & \textbf{F1} & \textbf{T} & \textbf{P} & \textbf{R} & \textbf{F1} & \textbf{T} \\
+\midrule
+\multicolumn{17}{c}{\textit{Constraint-Driven}}\\
+NADEEF      & 20.0 & 50.0 & .2857 & ${<}0.1$ & 33.3 & 50.0 & .4000 & ${<}0.1$ & 93.0 & 100  & .9639 & ${<}0.1$ & 20.8 & 9.6  & .1311 & ${<}0.1$ \\
+BigDansing  & 14.0 & 48.5 & .2173 & 47.6 & 34.8 & 86.9 & .4967 & 30.3 & 44.3 & 98.8 & .6116 & 66.9 & 10.6 & 28.8 & .1552 & 5.7 \\
+Horizon     & 7.7  & 38.3 & .1280 & ${<}2$ & 0.7  & 10.6 & .0127 & ${<}2$ & 48.1 & 48.3 & .4823 & ${<}2$ & 21.1 & 9.6  & .1316 & ${<}2$ \\
+Daisy       & \multicolumn{4}{c}{TIMEOUT} & \multicolumn{4}{c}{TIMEOUT} & \multicolumn{4}{c}{TIMEOUT} & \multicolumn{4}{c}{TIMEOUT} \\
+\midrule
+\multicolumn{17}{c}{\textit{Probabilistic}}\\
+HoloClean   & 100  & 100  & 1.000 & 64.5 & 0.0  & 0.0  & .0000 & 28.9 & 100  & 49.6 & .6630 & 89.1 & 100  & 7.3  & .1351 & 30.1 \\
+BClean      & 100  & 50.0 & .6667 & 13.5 & 9.0  & 50.4 & .1533 & 50.6 & 86.2 & 60.0 & .7076 & 12.5 & 91.4 & 75.7 & .8282 & 13.0 \\
+Rel.~Trust  & \multicolumn{4}{c}{TIMEOUT} & \multicolumn{4}{c}{TIMEOUT} & \multicolumn{4}{c}{TIMEOUT} & \multicolumn{4}{c}{TIMEOUT} \\
+Unified     & 81.9 & 81.9 & .8191 & 2280.6 & 50.2 & 50.2 & .5017 & 1020.9 & 0.0  & 0.0  & .0000 & 467.9 & 45.4 & 45.4 & .4536 & 1238.3 \\
+\midrule
+\multicolumn{17}{c}{\textit{ML / RL-Driven}}\\
+BoostClean  & 2.3  & 2.3  & .0225 & 186.4 & 0.7  & 0.4  & .0052 & 165.8 & 0.0  & 0.0  & .0000 & 201.2 & 0.0  & 0.0  & .0000 & 174.9 \\
+SCARE       & 0.0  & 0.0  & .0000 & 1301.7 & 0.0  & 0.0  & .0000 & 196.4 & 0.0  & 0.0  & .0000 & 415.3 & 0.0  & 0.0  & .0000 & 2850.3 \\
+Baran       & 12.0 & 14.9 & .1327 & 7.7  & 13.8 & 4.8  & .0709 & 4.7  & 81.4 & 62.1 & .7045 & 11.9 & 87.4 & 78.6 & .8275 & 9.7 \\
+\midrule
+\textbf{RL-FDRepair} & \textbf{99.1} & \textbf{98.0} & \textbf{.9859} & 386.3 & \textbf{90.1} & \textbf{85.3} & \textbf{.8763} & 283.7 & \textbf{100} & \textbf{100} & \textbf{1.000} & 36.0 & \textbf{82.4} & \textbf{78.5} & \textbf{.8041} & 420.5 \\
+\bottomrule
+\end{tabular}
+}
+\end{table*}
+
+\subsection{LHS Error Ratio Analysis}
+\label{sec:lhs_repair}
+
+The first limitation we set out to address is the difficulty of LHS errors. To test this directly, we fix the total error rate at $30\%$ and sweep the LHS error ratio from $20\%$ to $100\%$ (Fig.~\ref{fig:lhs_ratio}).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{fig_ieee_lhs_rate.png}
+\caption{F1 under varying LHS error ratios (20\%--100\%) at 30\% total error rate.}
+\label{fig:lhs_ratio}
+\end{figure}
+
+The result is the study's clearest signal: RL-FDRepair is the only method that stays above $0.83$ on every dataset across all LHS ratios. Its F1 actually \emph{rises} with the LHS ratio on Flights and Soccer (Flights $0.988\!\rightarrow\!1.000$, Soccer $0.924\!\rightarrow\!1.000$), reaching $1.000$ under pure LHS errors, and slips only slightly on Hospital ($0.992\!\rightarrow\!0.948$) and Beers ($0.854\!\rightarrow\!0.839$). This is exactly the regime where the evidence features and row-lock cascade are designed to help: as LHS errors dominate, the agent leans more on evidence-guided reassignment while the cascade keeps tracking each tuple through the FD graph, avoiding the brittle assumptions that sink the baselines.
+
+Those baselines improve only locally. Several gain at higher LHS ratios on a favorable dataset, Relative Trust and Unified on Flights and Soccer, BigDansing and Horizon on Hospital, but each then fails elsewhere (Relative Trust drops to $0.668$--$0.775$ on Beers and Hospital at LHS$=100\%$; Unified stays below $0.49$ on Flights at every ratio). The one method to beat us on any ratio is HoloClean on Beers ($0.932$--$0.996$ vs.\ our $0.839$--$0.884$), again on the dataset whose near-star structure suits its factor graph, yet even there it is fragile, swinging from $0.870$ at LHS$=80\%$ to $0.373$ at LHS$=60\%$ on Soccer.
+
+The failure modes are revealing. NADEEF scores a perfect $1.000$ on Hospital at every LHS ratio but zero LHS-error F1 everywhere else: majority voting works only within a fixed group, so a wrong LHS value makes it repair toward the wrong group entirely. BClean degrades on Hospital as the LHS ratio grows ($0.867\!\rightarrow\!0.101$) because its Bayesian network conditions on the LHS, and conditioning on a corrupted value yields a corrupted posterior, the same weakness we identified for probabilistic methods in Section~\ref{sec:related}. BoostClean and SCARE stay near zero throughout, and Baran is stable only on Beers ($0.79$--$0.86$).
+
+\subsection{Ablation Study}
+\label{sec:ablation}
+
+To attribute the gains to specific components, we compare the full model against its four ablations across error rates (Fig.~\ref{fig:ablation}). Rather than one dominant factor, each component addresses a distinct failure mode, visible on a different dataset.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{fig_ablation_f1.png}
+\caption{F1 across error rates (5\%--30\%) for RL-FDRepair and its ablations.}
+\label{fig:ablation}
+\end{figure}
+
+\emph{Evidence features} matter most on Beers ($\Delta\text{F1}\,{-}0.02$ at $25\%$), where sparse FDs make the non-FD signal valuable for error-type discrimination; where FD coverage is dense, the violations alone already suffice. \emph{Row-lock cascade} is critical on Hospital ($\Delta\text{F1}\,{-}0.10$) and Flights ($\Delta\text{F1}\,{-}0.07$ at $30\%$), but it \emph{hurts} Soccer by $0.08$ to $0.13$: the bidirectional FD (\textsf{soccermanager} $\leftrightarrow$ \textsf{soccerclub}) lets the cascade cycle, producing conflicting signals that roughly triple the false repairs. \emph{Supervised pretraining} has the single largest effect, on Beers ($\Delta\text{F1}\,{-}0.19$ to ${-}0.25$): without the warm start the agent never learns even a basic repair heuristic from PPO alone, whereas Hospital and Flights are solvable regardless of initialization. \emph{PPO fine-tuning} isolates the value of sequential decision-making: on Beers its advantage over Supervised Only widens with the error rate (${-}0.06\!\rightarrow\!{-}0.24$), as PPO learns to sequence actions and avoid the cascading side effects that a greedy argmax incurs at scale, while on Hospital and Soccer it adds little beyond pretraining.
+
+Together these ablations support the paper's central claim: the benefit of RL here is not better single-step value selection but the ability to adapt a sequence of repairs to the changing data state, and the one case where the cascade backfires (cyclic bidirectional FDs on Soccer) points to a concrete direction for future work.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+We presented RL-FDRepair, which models FD violation repair as a sequential decision problem rather than a one-shot classification task. It formalizes repair as a Markov Decision Process that processes one inconsistent tuple at a time, deciding in a single step whether the tuple is wrong and which attribute to repair, supported by error-detection and repair-guidance features that signal whether a tuple is wrong and which attribute is wrong, a row-lock cascade mechanism that tracks and resolves cross-FD cascades, and a two-stage self-supervised training procedure that uses the consistent tuples of the dirty data as a clean reference, needing no external ground truth. On four benchmark datasets against eleven baselines, RL-FDRepair achieves the highest F1 on Hospital and Soccer and stays above 0.83 across all LHS error ratios, and the ablations show that the row-lock cascade and supervised pretraining are the dominant components, with the gap between PPO and supervised-only inference confirming that the policy improves repair by sequencing actions rather than just picking better individual values. Future work includes modeling multi-FD dependency structures with graph neural networks, replacing handcrafted features with learned relational embeddings, extending the framework to other constraint and error types, and exploring cross-dataset policy transfer to cut per-dataset training cost.
+
+\section{Artifacts}
+\label{sec:artifacts}
+
+Our artifact is a GitHub repository at the anonymous link below. The repository is public and does not track access, preserving reviewer anonymity.
+
+\medskip
+\noindent\url{https://anonymous.4open.science/r/RL-FDRepair-XXXX}
+\medskip
+
+\noindent\textbf{Contents.}
+The repository includes (i)~the full implementation of RL-FDRepair in PyTorch, (ii)~FD rule definitions for all four benchmark datasets (Flights, Soccer, Hospital, Beers), (iii)~dirty datasets with injected errors at error rates from 5\% to 30\%, (iv)~pre-computed pseudo-clean references for training, and (v)~a README with step-by-step reproduction instructions.
+
+\noindent\textbf{Structure.}
+\begin{verbatim}
+config.py              # Global configuration (reward, training, environment)
+train.py               # Training entry point
+inference.py           # Inference / repair entry point
+prepare_dataset.py     # Data preparation (pseudo-clean + dirty-train split)
+requirements.txt       # Python dependencies
+fd_repair/
+    environment.py     # RL environments (RowLockRepairEnv)
+    features.py        # Feature extractor (37-dim state vector)
+    policy.py          # PPO Actor-Critic network
+    trainer.py         # Supervised pretraining + PPO trainer
+    fd_utils.py        # FD parsing, conflict groups, dependency graph
+    error_injection.py # Synthetic error injection (RHS / LHS / mixed)
+    evaluator.py       # Evaluation metrics
+data/
+    FD_Rules/          # FD definitions (one .txt per dataset)
+    inject_errors/     # Dirty datasets per dataset and error rate
+    prepared/           # Training-ready data (pseudo_clean + dirty_train)
+\end{verbatim}
+
+\noindent\textbf{Reproducing the results.}
+All experiments in Section~\ref{sec:experiment} can be reproduced by the following workflow:
+\begin{enumerate}
+\item Install dependencies: \texttt{pip install -r requirements.txt} (PyTorch $\ge$ 2.0, NumPy $\ge$ 1.24, Pandas $\ge$ 2.0).
+\item Prepare training data: \texttt{python prepare\_dataset.py --dataset <dataset> --error\_rate <rate>}. This builds the pseudo-clean reference $\mathcal{D}_{\text{pseudo}}$ and the training split $\mathcal{D}_{\text{train}}$ from the raw dirty data.
+\item Train the policy: \texttt{python train.py --dataset <dataset> --epochs 100}. The script performs supervised pretraining followed by PPO fine-tuning with curriculum learning; the final model is saved to \texttt{checkpoints/<dataset>/model\_final.pt}.
+\item Run inference and evaluation: \texttt{python inference.py --dataset <dataset> --input <dirty.csv> --gt <clean.csv>}. The script outputs the repaired CSV and reports Precision, Recall, F1, and per-cell repair counts against the ground truth.
+\end{enumerate}
+
+All experiments in the paper used the same hyperparameters recorded in \texttt{config.py}: reward weights $w_{+}=5.0$, $w_{-}=-10.0$, step penalty $\alpha=-0.03$, shaping terms $\beta=0.5$, $\gamma=0.3$, terminal bonus $R_{\text{term}}=5.0$, PPO clip range $\epsilon=0.1$, GAE trade-off $\lambda=0.95$, max candidates $K=S=3$, and cascade cap $K_{\max}=20$. The network architecture is a shared context encoder ($37 \rightarrow 128 \rightarrow 64$, LayerNorm, ReLU) with independent action heads. Training takes approximately 15--30 minutes per dataset on a consumer GPU.
+
+\noindent\textbf{Datasets.}
+The four benchmark datasets are publicly available: Flights, Soccer, and Hospital from the HoloClean benchmark, and Beers from the Raha project. We provide the FD rules and the error-injected variants used in our experiments; the original clean data can be obtained from their respective sources.
+
+\begin{thebibliography}{00}
+
+\bibitem{b1}
+T. Rekatsinas, X. Chu, I. F. Ilyas, and C. R\'{e},
+``HoloClean: Holistic Data Repairs with Probabilistic Inference,''
+\textit{Proc. VLDB Endow.}, vol. 10, no. 11, pp. 1190--1201, 2017.
+
+\bibitem{b2}
+M. Dallachiesa, A. Ebaid, A. Eldawy, A. Elmagarmid, I. F. Ilyas, M. Ouzzani, and N. Tang,
+``NADEEF: A Commodity Data Cleaning System,''
+in \textit{Proc. ACM SIGMOD}, 2013, pp. 541--552.
+
+\bibitem{b3}
+J. Schulman, F. Wolski, P. Dhariwal, A. Radford, and O. Klimov,
+``Proximal Policy Optimization Algorithms,''
+\textit{arXiv preprint arXiv:1707.06347}, 2017.
+
+\bibitem{b4}
+R. S. Sutton and A. G. Barto,
+\textit{Reinforcement Learning: An Introduction}, 2nd ed.
+Cambridge, MA, USA: MIT Press, 2018.
+
+\bibitem{b5}
+S. Krishnan, J. Wang, E. Wu, M. J. Franklin, and K. Goldberg,
+``ActiveClean: Interactive Data Cleaning for Statistical Modeling,''
+\textit{Proc. VLDB Endow.}, vol. 9, no. 12, pp. 948--959, 2016.
+
+\bibitem{b6}
+X. Chu, I. F. Ilyas, and P. Papotti,
+``Holistic Data Cleaning: Putting Violations into Context,''
+in \textit{Proc. IEEE ICDE}, 2013, pp. 458--469.
+
+\bibitem{b7}
+S. Kolahi and L. V. S. Lakshmanan,
+``On Approximating Optimum Repairs for Functional Dependency Violations,''
+in \textit{Proc. ICDT}, 2009, pp. 53--64.
+
+\bibitem{b8}
+X. Chu, I. F. Ilyas, S. Krishnan, and J. Wang,
+``Data Cleaning: Overview and Emerging Challenges,''
+in \textit{Proc. ACM SIGMOD}, 2016, pp. 2201--2206.
+
+\bibitem{b9}
+J. Qin, S. Huang, Y. Wang, and C. Xiao,
+``BClean: A Bayesian Data Cleaning System,''
+in \textit{Proc. IEEE ICDE}, 2024.
+
+\bibitem{b10}
+J. Peng, D. Shen, T. Nie, and Y. Li,
+``RLclean: An Unsupervised Integrated Data Cleaning Framework based on Deep Reinforcement Learning,''
+\textit{Information Sciences}, vol. 658, p. 120021, 2024.
+
+\bibitem{b11}
+M. Abdelaal, A. B. Yayak, K. Klede, and H. Sch\"{o}ning,
+``ReClean: Reinforcement Learning for Automated Data Cleaning in ML Pipelines,''
+in \textit{Proc. IEEE ICDEW}, 2024, pp. 324--330.
+
+\bibitem{b12}
+C. Pit-Claudel, Z. Mariet, R. Harding, and S. Madden,
+``Outlier Detection in Heterogeneous Datasets using Automatic Tuple Expansion,''
+\textit{Technical Report MIT-CSAIL-TR-2016-002}, 2016.
+
+\bibitem{b13}
+X. Chu, J. Morcos, I. F. Ilyas, M. Ouzzani, P. Papotti, N. Tang, and Y. Ye,
+``KATARA: A Data Cleaning System Powered by Knowledge Bases and Crowdsourcing,''
+in \textit{Proc. ACM SIGMOD}, 2015, pp. 1247--1261.
+
+\bibitem{b14}
+Y. Gao, C. Ge, X. Miao, H. Wang, B. Yao, and Q. Li,
+``MLNClean: A Data Cleaning Framework Using Markov Logic Networks,''
+\textit{IEEE Transactions on Knowledge and Data Engineering},
+vol. 33, no. 2, pp. 745--758, Feb. 2021.
+
+\bibitem{b15}
+F. Geerts, G. Mecca, P. Papotti, and D. Santoro,
+``The LLUNATIC Data-Cleaning Framework,''
+\textit{Proc. VLDB Endow.}, vol. 6, no. 9, pp. 625--636, 2013.
+
+\bibitem{b16}
+R. J. A. Little and D. B. Rubin,
+\textit{Statistical Analysis with Missing Data}, 3rd ed.
+Hoboken, NJ, USA: Wiley, 2019.
+
+\bibitem{b17}
+D. J. Stekhoven and P. B\"{u}hlmann,
+``MissForest---Non-parametric Missing Value Imputation for Mixed-type Data,''
+\textit{Bioinformatics}, vol. 28, no. 1, pp. 112--118, 2012.
+
+\bibitem{b18}
+F. Biessmann, T. Rukat, P. Schmidt, P. Naidu, S. Schelter, A. Taptunov, D. Lange, and D. Salinas,
+``DataWig: Missing Value Imputation for Tables,''
+\textit{J. Mach. Learn. Res.}, vol. 20, no. 175, pp. 1--6, 2019.
+
+\bibitem{b19}
+M. S. Santos, J. P. Soares, P. H. Abreu, H. Ara\'{u}jo, and J. Santos,
+``Influence of Data Distribution in Missing Data Imputation,''
+in \textit{Proc. ECML PKDD}, 2017, pp. 285--300.
+
+\bibitem{b20}
+R. Wu, S. Chaba, S. Sawlani, X. Chu, and S. Thirumuruganathan,
+``ZeroER: Entity Resolution using Zero Labeled Examples,''
+in \textit{Proc. ACM SIGMOD}, 2020, pp. 1149--1164.
+
+\bibitem{b21}
+M. Stonebraker, D. Bruckner, I. F. Ilyas, G. Beskales, M. Cherniack, S. Zdonik, A. Pagan, and S. Xu,
+``Data Curation at Scale: The Data Tamer System,''
+in \textit{Proc. CIDR}, 2013.
+
+\bibitem{b22}
+M. Yakout, A. K. Elmagarmid, J. Neville, M. Ouzzani, and I. F. Ilyas,
+``Guided Data Repair,''
+\textit{Proc. VLDB Endow.},
+vol. 4, no. 5, pp. 279--289, 2011.
+
+\bibitem{b23}
+M. Mahdavi, Z. Abedjan, R. Castro, S. Madden, M. Ouzzani, P. Papotti, and N. Tang,
+``Raha: A Configuration-Free Error Detection System,''
+in \textit{Proc. ACM SIGMOD}, 2019, pp. 865--882.
+
+\bibitem{b24}
+Z. Abedjan, X. Chu, D. Deng, R. Castro, I. F. Ilyas, M. Ouzzani, P. Papotti, and N. Tang,
+``Detecting Data Errors: Where Are We and What Needs to Be Done?''
+\textit{Proc. VLDB Endow.}, vol. 9, no. 12, pp. 993--1004, 2016.
+
+\bibitem{b25}
+P. Li, X. Rao, J. Blase, Y. Zhang, X. Chu, and C. Zhang,
+``CleanML: A Study on the Impact of Data Cleaning on ML Pipelines,''
+\textit{IEEE Trans. Knowl. Data Eng.}, vol. 34, no. 12, pp. 5742--5755, 2022.
+
+\bibitem{b26}
+Z. Abedjan, L. Golab, and F. Naumann,
+``Profiling Relational Data: A Survey,''
+\textit{VLDB J.}, vol. 24, no. 4, pp. 557--581, 2015.
+
+\bibitem{b27}
+R. Marcus and O. Papaemmanouil,
+``Deep Reinforcement Learning for Join Order Enumeration,''
+in \textit{Proc. SIGMOD aiDM Workshop}, 2018, pp. 1--4.
+
+\bibitem{b28}
+R. Zhu, L. Weng, B. Ding, and J. Zhou,
+``Learned Query Optimizer: What is New and What is Next,''
+in \textit{Proc. ACM SIGMOD/PODS Companion}, 2024, pp. 561--569.
+
+\bibitem{b29}
+X. Yu, G. Li, C. Chai, and N. Tang,
+``Reinforcement Learning with Tree-LSTM for Join Order Selection,''
+in \textit{Proc. IEEE ICDE}, 2020, pp. 1297--1308.
+
+\bibitem{b30}
+J. Zhang, Y. Liu, K. Zhou, G. Li, Z. Xiao, B. Cheng, J. Xing, Y. Wang, T. Cheng, L. Liu, M. Ran, and Z. Li,
+``An End-to-End Automatic Cloud Database Tuning System Using Deep Reinforcement Learning,''
+in \textit{Proc. ACM SIGMOD}, 2019, pp. 415--432.
+
+\bibitem{b31}
+G. Li, X. Zhou, S. Li, and B. Gao,
+``QTune: A Query-Aware Database Tuning System with Deep Reinforcement Learning,''
+\textit{Proc. VLDB Endow.}, vol. 12, no. 12, pp. 2118--2130, 2019.
+
+\bibitem{b32}
+L. Berti-Equille,
+``Learn2Clean: Optimizing the Sequence of Tasks for Web Data Preparation,''
+in \textit{Proc. Int. World Wide Web Conf. (WWW)},
+2019, pp. 349--360.
+
+\bibitem{b33}
+Z. Khayyat, I. F. Ilyas, A. Jindal, S. Madden, M. Ouzzani, P. Papotti, J.-A. Quian\'{e}-Ruiz, N. Tang, and S. Yin,
+``BigDansing: A System for Big Data Cleansing,''
+in \textit{Proc. ACM SIGMOD}, 2015, pp. 1215--1230.
+
+\bibitem{b34}
+S. Giannakopoulou, M. Karpathiotakis, and A. Ailamaki,
+``Cleaning Denial Constraint Violations through Relaxation,''
+in \textit{Proc. ACM SIGMOD}, 2020, pp. 805--815.
+
+\bibitem{b35}
+E. K. Rezig, M. Ouzzani, W. G. Aref, A. Elmagarmid, A. Mahmood, and M. Stonebraker,
+``Horizon: Scalable Dependency-driven Data Cleaning,''
+\textit{Proc. VLDB Endow.}, vol. 14, no. 11, pp. 2546--2554, 2021.
+
+\bibitem{b36}
+G. Beskales, I. F. Ilyas, L. Golab, and A. Galiullin,
+``On the Relative Trust between Inconsistent Data and Inaccurate Constraints,''
+in \textit{Proc. IEEE ICDE}, 2013, pp. 541--552.
+
+\bibitem{b37}
+F. Chiang and R. J. Miller,
+``A Unified Model for Data and Constraint Repair,''
+in \textit{Proc. IEEE ICDE}, 2011, pp. 446--457.
+
+\bibitem{b38}
+S. Krishnan, M. J. Franklin, K. Goldberg, and E. Wu,
+``BoostClean: Automated Error Detection and Repair for Machine Learning,''
+\textit{arXiv preprint arXiv:1711.01299}, 2017.
+
+\bibitem{b39}
+M. Yakout, L. Berti-\'{E}quille, and A. K. Elmagarmid,
+``Don't be SCAREd: Use SCalable Automatic REpairing with Maximal Likelihood and Bounded Changes,''
+in \textit{Proc. ACM SIGMOD}, 2013, pp. 553--564.
+
+\end{thebibliography}
+
+\end{document}

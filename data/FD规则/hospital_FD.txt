@@ -1,0 +1,14 @@
+condition,measurename|hospitaltype
+hospitalname|zipcode
+hospitalname|phonenumber
+measurecode|measurename
+providernumber|hospitalname
+measurecode|condition
+hospitalname|address1
+hospitalname|hospitalowner
+hospitalname|providernumber
+hospitalname,phonenumber,hospitalowner|state
+city|countryname
+zipcode|emergencyservice
+hospitalname|city
+measurename|measurecode

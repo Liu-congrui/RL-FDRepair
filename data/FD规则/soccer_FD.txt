@@ -1,0 +1,3 @@
+soccerclub|soccermanager
+soccerclub|stadium
+soccermanager|soccerclub
