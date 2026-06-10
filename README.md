@@ -9,23 +9,26 @@ Functional Dependency Violation Repair via Sequential Decision Making.
 ## 项目结构
 
 ```
-├── config.py               # 全局配置
+├── config.py               # 全局配置（奖励权重、训练超参、网络结构）
 ├── train.py                # 训练入口
 ├── inference.py            # 推理 / 修复入口
-├── prepare_dataset.py      # 数据准备
+├── prepare_dataset.py      # 数据准备（pseudo_clean + dirty_train）
+├── main.tex                # 论文源码
 ├── requirements.txt
 ├── fd_repair/
+│   ├── __init__.py
+│   ├── environment.py      # RL 环境（RowLockRepairEnv：row-lock cascade）
+│   ├── features.py         # 特征提取器（37 dim）
+│   ├── policy.py           # PPO Actor-Critic（37 → 128 → 64, LayerNorm + ReLU）
+│   ├── trainer.py          # 监督预训练 + PPO 训练 + 课程学习
 │   ├── fd_utils.py         # FD 解析、冲突组构建、FD 依赖图、证据排名
 │   ├── error_injection.py  # 错误注入（RHS / LHS / majority-mislead / multi-cell）
-│   ├── environment.py      # RL 环境（FDRepairEnv + RowLockRepairEnv）
-│   ├── features.py         # 特征提取器（37 维：group + evidence + RHS + LHS + row-lock + target-row）
-│   ├── policy.py           # PPO Actor-Critic（37 → 128 → 64, LayerNorm + ReLU）
-│   ├── trainer.py          # 监督预训练 + PPO 训练器（课程学习）
 │   └── evaluator.py        # 评估指标
 └── data/
-    ├── FD规则/             # 8 个数据集的 FD 定义
-    ├── inject_errors/      # 脏数据（7 个数据集 × 多个错误率）
-    └── prepared/           # 训练数据（pseudo_clean + dirty_train）
+    ├── FD规则/             # 4 个数据集的 FD 定义
+    ├── inject_errors/      # 脏数据（{dataset}-new/ 含 clean + dirty 0.05~0.30）
+    ├── change_LHS_rate/    # LHS 错误比例敏感性实验数据
+    └── prepared/           # 训练就绪数据（pseudo_clean + dirty_train）
 ```
 
 ---
@@ -62,19 +65,20 @@ python train.py --dataset beers --epochs 50 --device cpu
 
 模型保存至 `checkpoints-new-7action/{dataset}/model_final.pt`。
 
-### 3. 推理
+### 3. 推理 / 修复
 
 ```bash
+# 基本修复
 python inference.py \
   --dataset hospital \
-  --input data/dirty.csv \
+  --input data/inject_errors/hospital-new/hospital_dirty_0.20_m.csv \
   --output data/repaired.csv
 
 # 带 GT 评估
 python inference.py \
   --dataset hospital \
-  --input data/dirty.csv \
-  --gt data/ground_truth.csv
+  --input data/inject_errors/hospital-new/hospital_dirty_0.20_m.csv \
+  --gt data/inject_errors/hospital-new/hospital_clean.csv
 ```
 
 ---
@@ -83,7 +87,7 @@ python inference.py \
 
 | 元素 | 定义 |
 |------|------|
-| **State** | 37 维特征向量：group(8) + evidence(4) + RHS(4) + LHS(15) + row-lock(4) + target-row(2) |
+| **State** | 37 维特征向量：group(8) + RHS(4) + evidence(4) + LHS(15) + row-lock(4) + target-row(2) |
 | **Action** | RHS 统一 (3) + LHS 移出 (3) + NO_OP (1) = 7 个离散动作 |
 | **Reward** | cell-level 修复正确性 + row-level detection 奖励 + shaping 惩罚 |
 | **Episode** | 逐行锁定，通过 FD 依赖图级联追踪，直至该行无冲突或达 K_max = 20 步 |
@@ -120,8 +124,8 @@ r_t = r_t^cell + r_t^row + r_t^shape
 
 ## 训练流程
 
-1. **监督预训练**：在 D_pseudo 注入合成错误构造 D_train，逐行生成最优动作标签，交叉熵预训练 30 epochs。
-2. **PPO 微调**：课程学习 — Phase 1 (20 epochs) 只训练注错行；Phase 2 (80 epochs) 混入最多 50% 正确行。GAE (λ = 0.95) 追溯级联中的延迟冲突。每组超参：clip ε = 0.1, γ = 0.99。
+1. **监督预训练**（30 epochs）：在 pseudo-clean 数据上注入合成错误构造 D_train，逐行生成最优动作标签，交叉熵预训练，提供稳定初始策略。
+2. **PPO 微调**（课程学习）：Phase 1（前 20 epochs）只训练注错行，学习"修错行 = 好"；Phase 2（后 80 epochs）混入最多 50% 正确行，学习"跳过正确行"。GAE (λ = 0.95) 追溯级联中的延迟冲突。PPO 超参：clip ε = 0.1, γ = 0.99, lr = 5e-5。
 
 ---
 
@@ -138,14 +142,14 @@ r_t = r_t^cell + r_t^row + r_t^shape
 
 ## 配置
 
-所有参数在 `config.py` 中：
+所有参数集中在 `config.py`：
 
-| 配置块 | 内容 |
-|--------|------|
-| `REWARD_CONFIG` | cell-level 奖励权重、selection 奖励、shaping 惩罚 |
-| `TRAIN_CONFIG` | 预训练 & PPO 超参、课程学习、error rate 范围 |
-| `ENV_CONFIG` | max steps per episode, max candidates (K = S = 3) |
+| 配置块 | 关键参数 |
+|--------|----------|
+| `REWARD_CONFIG` | w_+ = 5.0, w_- = -10.0, R_repair = 20.0, P_edit = -3.0, P_miss = -20.0, β = 0.5, γ = 0.3, α = -0.03, R_term = 5.0 |
+| `TRAIN_CONFIG` | pretrain 30 epochs (lr 5e-4), PPO 30 epochs (lr 5e-5), clip ε = 0.1, γ = 0.99, λ = 0.95 |
+| `ENV_CONFIG` | max_steps_per_episode = 5, max_candidates K = S = 3 |
 | `NETWORK_CONFIG` | feature_dim = 64, hidden_dim = 128 |
-| `ERROR_INJECTION_CONFIG` | LHS error ratio (default 0.5) |
-| `ROW_LOCK_CONFIG` | cascade max steps = 20 |
-| `INFERENCE_CONFIG` | 置信度门控阈值 |
+| `ERROR_INJECTION_CONFIG` | LHS error ratio = 0.5（跨多 FD 的数据集如 cars/tax1 降为 0.2） |
+| `ROW_LOCK_CONFIG` | cascade max steps K_max = 20 |
+| `INFERENCE_CONFIG` | confidence margin threshold = 0.05 |
