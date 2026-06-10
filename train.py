@@ -38,7 +38,7 @@ def parse_args():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--output_dir", type=str, default=None,
-                        help="Checkpoint directory. Defaults to {dataset}/checkpoints-new-7action")
+                        help="Checkpoint directory. Defaults to {dataset}/checkpoints")
     parser.add_argument("--data_dir", type=str, default=None,
                         help="Directory with pseudo_clean.csv and dirty_train.csv. "
                              "Defaults to data/prepared/{dataset}/")

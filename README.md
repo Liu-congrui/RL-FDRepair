@@ -13,7 +13,6 @@ Functional Dependency Violation Repair via Sequential Decision Making.
 ├── train.py                # 训练入口
 ├── inference.py            # 推理 / 修复入口
 ├── prepare_dataset.py      # 数据准备（pseudo_clean + dirty_train）
-├── main.tex                # 论文源码
 ├── requirements.txt
 ├── fd_repair/
 │   ├── __init__.py
@@ -63,7 +62,7 @@ python train.py --dataset hospital --epochs 100
 python train.py --dataset beers --epochs 50 --device cpu
 ```
 
-模型保存至 `checkpoints-new-7action/{dataset}/model_final.pt`。
+模型保存至 `checkpoints-new/{dataset}/model_final.pt`。
 
 ### 3. 推理 / 修复
 
